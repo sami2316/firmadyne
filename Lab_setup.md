@@ -1,7 +1,7 @@
 # IoT Firmware Analysis
 
 ### Extract the firmware 
-To perform reverse engineering, it is necessary to have access to the firmware. If you are fortunate, you may be able to find the firmware.img on the internet. However, if it is not available, you will need to access the hardware and physically extract the firmware. Some boards have UART pins that can be used in conjunction with a USB-UART interface to access the system.
+To perform reverse engineering, it is necessary to have access to the firmware. If you are fortunate, you may be able to find the *firmware.img* on the internet. However, if it is not available, you will need to access the hardware and physically extract the firmware. Some boards have UART pins that can be used in conjunction with a USB-UART interface to access the system.
 
 If you require more information, you can refer to the following link: https://github.com/Numb3rsProprety/Reverse-Engineering-Tenda-CP3.
 
@@ -25,13 +25,14 @@ possible and get `root` access to the IP camera.
 For static analysis, we will use `binwalk` tool; also a part of Firmadyne tool. `binwalk` is efficient in analysing any type of binary. 
 
 1. In the `/work` folder, you have `CP3_2111220956.zip` file, unzip it to extract the firmware image. 
-``` $ wget -N --continue https://down.tenda.com.cn/uploadfile/CP3/CP3_2111220956.zip
+```console
+    $ wget -N --continue https://down.tenda.com.cn/uploadfile/CP3/CP3_2111220956.zip
     $ unzip CP3_2111220956.zip
 ```
 
 2. The extracted folder will have `Flash.img` file, which is our target firmware. 
 3. Run the static analysis on *Flash.img* using *binwalk*, which will extract all firmware files into `_Flash.img.extracted`. 
-```shell
+```console
     $binwalk -re Flash.img
     DECIMAL       HEXADECIMAL     DESCRIPTION
     --------------------------------------------------------------------------------
@@ -51,15 +52,15 @@ For static analysis, we will use `binwalk` tool; also a part of Firmadyne tool. 
     WARNING: Symlink points outside of the extraction directory: /work/test/_Flash.img.extracted/squashfs-root/sysinfo/hw_info -> /app/userdata/hw_info; changing link target to /dev/null for security purposes.
     3997696       0x3D0000        Squashfs filesystem, little endian, version 4.0, compression:gzip, size: 4073085 bytes, 123 inodes, blocksize: 131072 bytes, created: 2021-11-22 01:57:24
 ```
-```
+```console
     $ls _Flash.img.extracted/
      5432C  jffs2-root  squashfs-root
   
 ```
 The `squashfs-root` contain all files of our analysis. Let's dig it deeper. 
 
-4. Explore the s*quashfs-root* folder and analyze the all `.conf` and `.sh` files. 
-```
+4. Explore the *squashfs-root* folder and analyze the all `.conf` and `.sh` files. 
+```console
     ls squashfs-root
     abin			db_init.sh		lib			sd_hotplug.sh		usb_dev.sh
     ap_mode.cfg		gpio.sh			mi.sh			sdio_dev.sh		userdata
@@ -80,7 +81,7 @@ The `squashfs-root` contain all files of our analysis. Let's dig it deeper.
 When you find the passwords, try them into the emulated firmware terminal. 
 
 5. Did you get lucky in finding the password? Lets explore the `shadow` file. 
-```
+```console
     cat shadow
     root:7h2yflPlPVV5.:18545:0:99999:7:::
 ```
@@ -89,7 +90,7 @@ The first two parts are significantly improtant i.e. username (root) and passwor
 part is encrypted. How to decrypt the password? 
 
 6. Well `John the Ripper` will save our life and do the cracking job. 
-```
+```console
     # First unshadow the file, which required "/etc/passwd" file. Unfortunately, this file does not exist here but we can use a general one.
     $ echo "root:x:0:0:root:/root:/bin/sh" > passwd.txt
     $ unshadow passwd.txt shadow ? unshadow.txt
@@ -105,14 +106,16 @@ When `john unshadow.txt` completes its job, then run `john --show unshadow.txt` 
 
 
 ## Firmware Emulation
-1. Build the Docker machine. Docker machine is based on Firmadyne tool, which will be used for emulation of extracted hardware and any static or dynamic analysis. Run the following command in terminal. 
-```
+When we don't have access to the IoT device, we can emulate it and run all analysis. *Firmadyne* is such a tool and can emulates many IoT devices, provided we have a sample firmware. 
+
+1. Run the following command to build a Docker machine that will install all dependencies and Firmadyne tool. We will use this docker container for the emulation of target IoT device and for any static or dynamic analysis. 
+```console
     docker build -t firmadyne .
 ```
 
 2. Run the docker container using the following command. 
    
-   ```
+   ```console
        docker run --privileged --rm -v $PWD:/work -w /work -it --net=host firmadyne
        
        + export PGPASSWORD=firmadyne
@@ -129,7 +132,7 @@ When `john unshadow.txt` completes its job, then run `john --show unshadow.txt` 
    ```
    
 3. In this lab, we will be using the following firmware. 
-```
+```console
     $ wget -N --continue https://down.tenda.com.cn/uploadfile/CP3/CP3_2111220956.zip
     $ ZIP_FILE="CP3_2111220956.zip"
     $ mkdir test
@@ -138,27 +141,27 @@ When `john unshadow.txt` completes its job, then run `john --show unshadow.txt` 
     
 ```
 
-4. Once you have the firmware, extract and format the `.zip` file. 
-```
+4. Once you have the firmware, then extract it and format the `.zip` file. The Firmadyne linked `extractor.py` has some limitations and not extracting the squashfs-root filesystem into the *tar.gz*. To deal with this limitation, we need to manually copy the squashfs-root files into the target tar file. 
+```console
     $ cd /work
     $ python3 ./sources/extractor/extractor.py -b Tenda -sql 127.0.0.1 -np -nk "$ZIP_FILE" images
     $ tar --append --file=images/<1>.tar -C test/_Flash.img.extracted/squashfs-root/ .
 ``` 
 
 5. Check the `images` folder and ensure that there is a file `<1>.tar.gz`. Then convert the file to an Linux image, which can be emulated by Firmadyne.
-```
+```console
     $ sudo -SE ./scripts/makeImage.sh <1>
 ```
 Be sure to fill the above command with the number of `<1>.tar.gz`.
 
 6. Set up the networking and try to infer the network configurations. `inferNetwork.sh` will generate the `run.sh` file, which 
 7. has all the instructions/commands to run the the generated image in QEMU. 
-```
+```console
     $ ./scripts/inferNetwork.sh 1
 ```
 
 7. Finally execute the `run.sh` to emulate the firmware image (`<1>.tar.gz`)
-```
+```console
     $ ./scratch/1/run.sh
 
     (none) login: root
@@ -168,12 +171,12 @@ Be sure to fill the above command with the number of `<1>.tar.gz`.
 
 #### Task 3: Run all the above steps and emulate the firmware.
 
-The emulation process is complete. But how to analyse the firmware?
-
+The emulation process is complete and we have access to the terminal but we don't know the username and password. How to dynamically analyse the firmware? 
+Well, we can mount the image as Linux filesystem using the script privided in Firmadyne directory. 
 
 ### Dynamic Analysis
-1. Lets mount the emulated image, generated in Task 1. 
-```
+1. Lets mount the emulated image, generated in Task 3. 
+```console
     $ sudo su
     # export FIRMWARE_DIR='.'
     # ./scripts/mount.sh 3
@@ -197,5 +200,23 @@ The emulation process is complete. But how to analyse the firmware?
 * Well you have got the root access; Hack done, the rest is penetration is as per your imagination. 
 
 ## Reverse Engineering the Functionality of App?
+In your previous analysis, you might have observed many binaries file, which seems specific to the IoT device functionality e.g. the ones in `abin`, `hdt_model`, etc. In previous system security course, we have done extensive reverse engineering exercises using `radare2` tool but in this lab, we use Ghidra, which is opensource, have better GUI, and improved analysis experience for bigger binaries.
+
+1. Install Ghidra.
+```console
+    $ git clone https://github.com/bkerler/ghidra_installer
+    $ cd ghidra_installer
+    $ ./install-ghidra.sh
+```
+
+2. Run Ghidra
+```console
+    $ ghidra
+```
+
+#### Task 5: Anlyse ARM files in `modules` directory 
+- Import `enc.ko` file and make a Ghidra project
+- Analyse the file and report the encryption algorithm used and its working. 
+- Choose anyother file from `modules` directory and report any interesting findings. 
 
 
