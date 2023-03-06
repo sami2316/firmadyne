@@ -1,5 +1,8 @@
 # docker build -t firmadyne .
-FROM ubuntu:14.04
+FROM ubuntu:18.04
+
+ENV TZ=Europe/London
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Update packages
 RUN apt-get update && apt-get upgrade -y && apt-get install -y sudo

@@ -12,7 +12,12 @@ pushd /firmadyne/firmadyne
 wget -N --continue https://down.tenda.com.cn/uploadfile/CP3/CP3_2111220956.zip
 ZIP_FILE="CP3_2111220956.zip"
 
+mkdir test
+unzip $ZIP_FILE -d test
+binwalk -re test/Flash.img
+
 python3 ./sources/extractor/extractor.py -b Tenda -sql 127.0.0.1 -np -nk "$ZIP_FILE" images
+tar --append --file=images/1.tar -C test/_Flash.img.extracted/squashfs-root/ .
 
 ./scripts/getArch.sh ./images/1.tar.gz
 ./scripts/tar2db.py -i 1 -f ./images/1.tar.gz
