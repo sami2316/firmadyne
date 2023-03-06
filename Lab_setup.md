@@ -221,3 +221,8 @@ In your previous static analysis, you might have observed many binaries file, wh
 - Choose anyother file from `modules` directory and report any interesting findings. 
 
 **Congratulations, you've taken your first step toward IoT firmware analysis.**
+
+## What's next?
+Play with the following firmwares with detailed guidlines.
+- https://ioactive.com/got-15-minutes-to-kill-why-not-root-your-christmas-gift/
+- https://github.com/patrick-usf/IoT-Module
