@@ -1,11 +1,9 @@
 # IoT Firmware Analysis
 
 ### Extract the firmware 
-To perform reverse engineering, it is necessary to have access to the firmware. If you are fortunate, you may be able to find the *firmware.img* on the internet. However, if it is not available, you will need to access the hardware and physically extract the firmware. Some boards have UART pins that can be used in conjunction with a USB-UART interface to access the system.
+To perform reverse engineering, it is necessary to have access to the firmware. If you are fortunate, you may be able to find the *firmware image* on the vendor website. However, if it is not available, you must have to access the hardware and physically extract the firmware. Some boards have UART pins that can be used in conjunction with a USB-UART interface to access the system and extract the firmware. A firmware extraction toolchain is available here: https://github.com/TSELab/IoT-Device-Hacking, which can used via UART interface.
 
-If you require more information, you can refer to the following link: https://github.com/Numb3rsProprety/Reverse-Engineering-Tenda-CP3.
-
-For instance, to learn how to open the device and locate the Rx/Tx pins, you can refer to the provided images for guidance.
+In this lab, we have experimented with Tenda CP3 IP camera. For more details to interface UART with CP3 IP camera, you can refer to the following link: https://github.com/Numb3rsProprety/Reverse-Engineering-Tenda-CP3. Moreover, to learn how to open the device and locate the Rx/Tx pins, you can refer to the provided images for guidance (which captured during our in-house efforts).
 
 <p float="left">
 <img src="https://github.com/sami2316/firmadyne/blob/master/img/IMG_4038.png" width="250" height="300">
@@ -22,15 +20,15 @@ possible and get `root` access to the IP camera.
 **Why root access and what information should we looking for?**
 
 #### Static Analysis
-For static analysis, we will use `binwalk` tool; also a part of Firmadyne tool. `binwalk` is efficient in analysing any type of binary. 
+For static analysis, we will use `binwalk` tool; also a part of Firmadyne tool. `Binwalk` is very efficient in analysing any type of binary and then extracting the filesystem. 
 
-1. In the `/work` folder, you have `CP3_2111220956.zip` file, unzip it to extract the firmware image. 
+1. In the `/work` folder, download `CP3_2111220956.zip` file, and unzip it to further explore the firmware image. 
 ```console
     $ wget -N --continue https://down.tenda.com.cn/uploadfile/CP3/CP3_2111220956.zip
     $ unzip CP3_2111220956.zip
 ```
 
-2. The extracted folder will have `Flash.img` file, which is our target firmware. 
+2. The unzipped folder will have `Flash.img` file, which is our target firmware; for further analysis. 
 3. Run the static analysis on *Flash.img* using *binwalk*, which will extract all firmware files into `_Flash.img.extracted`. 
 ```console
     $binwalk -re Flash.img
@@ -59,7 +57,7 @@ For static analysis, we will use `binwalk` tool; also a part of Firmadyne tool. 
 ```
 The `squashfs-root` contain all files of our analysis. Let's dig it deeper. 
 
-4. Explore the *squashfs-root* folder and analyze the all `.conf` and `.sh` files. 
+4. Explore the *squashfs-root* folder and analyze all `.conf` and `.sh` files. 
 ```console
     ls squashfs-root
     abin			db_init.sh		lib			sd_hotplug.sh		usb_dev.sh
@@ -106,7 +104,7 @@ When `john unshadow.txt` completes its job, then run `john --show unshadow.txt` 
 
 
 ## Firmware Emulation
-When we don't have access to the IoT device, we can emulate it and run all analysis. *Firmadyne* is such a tool and can emulates many IoT devices, provided we have a sample firmware. 
+When we don't have access to the IoT device, we can emulate it and run any dynamic analysis. *Firmadyne* is such a tool and can emulates many IoT devices, provided we have a sample firmware. Carefully follow the steps below to emulate a firmware image using firmadyne. 
 
 1. Run the following command to build a Docker machine that will install all dependencies and Firmadyne tool. We will use this docker container for the emulation of target IoT device and for any static or dynamic analysis. 
 ```console
@@ -131,7 +129,7 @@ When we don't have access to the IoT device, we can emulate it and run all analy
        + exec /bin/bash
    ```
    
-3. In this lab, we will be using the following firmware. 
+3. In this lab, we will be using the following firmware (Tenda CP3 IP camera). 
 ```console
     $ wget -N --continue https://down.tenda.com.cn/uploadfile/CP3/CP3_2111220956.zip
     $ ZIP_FILE="CP3_2111220956.zip"
@@ -141,11 +139,13 @@ When we don't have access to the IoT device, we can emulate it and run all analy
     
 ```
 
-4. Once you have the firmware, then extract it and format the `.zip` file. The Firmadyne linked `extractor.py` has some limitations and not extracting the squashfs-root filesystem into the *tar.gz*. To deal with this limitation, we need to manually copy the squashfs-root files into the target tar file. 
+4. Once you have the firmware, then extract it and format the `.zip` file. The `firmadyne` linked (dependency) `extractor.py` has some limitations and not extracting the squashfs-root filesystem into the *tar.gz*. To deal with this limitation, we need to manually copy the squashfs-root files into the target tar file. 
 ```console
     $ cd /work
     $ python3 ./sources/extractor/extractor.py -b Tenda -sql 127.0.0.1 -np -nk "$ZIP_FILE" images
+    $ unzip /work/images/<1>.tar.gz
     $ tar --append --file=images/<1>.tar -C test/_Flash.img.extracted/squashfs-root/ .
+    $ gzip /work/images/<1>.tar
 ``` 
 
 5. Check the `images` folder and ensure that there is a file `<1>.tar.gz`. Then convert the file to an Linux image, which can be emulated by Firmadyne.
@@ -200,7 +200,7 @@ Well, we can mount the image as Linux filesystem using the script privided in Fi
 * Well you have got the root access; Hack done, the rest is penetration is as per your imagination. 
 
 ## Reverse Engineering the Functionality of App?
-In your previous analysis, you might have observed many binaries file, which seems specific to the IoT device functionality e.g. the ones in `abin`, `hdt_model`, etc. In previous system security course, we have done extensive reverse engineering exercises using `radare2` tool but in this lab, we use Ghidra, which is opensource, have better GUI, and improved analysis experience for bigger binaries.
+In your previous static analysis, you might have observed many binaries file, which seems specific to the IoT device functionality e.g. the ones in `abin`, `hdt_model`, etc. In previous system security course, we have done extensive reverse engineering exercises using `radare2` tool but in this lab, we use Ghidra, which is opensource, have better GUI, and improved analysis experience for bigger binaries.
 
 1. Install Ghidra.
 ```console
@@ -214,9 +214,10 @@ In your previous analysis, you might have observed many binaries file, which see
     $ ghidra
 ```
 
+### DEMO for using Ghidra
 #### Task 5: Anlyse ARM files in `modules` directory 
 - Import `enc.ko` file and make a Ghidra project
 - Analyse the file and report the encryption algorithm used and its working. 
 - Choose anyother file from `modules` directory and report any interesting findings. 
 
-
+**Congratulations, you've taken your first step toward IoT firmware analysis.**
