@@ -24,7 +24,7 @@ For static analysis, we will use `binwalk` tool; also a part of Firmadyne tool. 
 
 1. In the `/work` folder, download `CP3_2111220956.zip` file, and unzip it to further explore the firmware image. 
 ```console
-    $ sudo apt install python-lzma squashfs-tools binwalk
+    $ sudo apt install squashfs-tools binwalk
     $ wget -N --continue https://down.tenda.com.cn/uploadfile/CP3/CP3_2111220956.zip
     $ unzip CP3_2111220956.zip
 ```
@@ -143,25 +143,33 @@ When we don't have access to the IoT device, we can emulate it and run any dynam
 4. Once you have the firmware, then extract it and format the `.zip` file. The `firmadyne` linked (dependency) `extractor.py` has some limitations and not extracting the squashfs-root filesystem into the *tar.gz*. To deal with this limitation, we need to manually copy the squashfs-root files into the target tar file. 
 ```console
     $ cd /work
+    $ export FIRMWARE_DIR='.'
     $ python3 ./sources/extractor/extractor.py -b Tenda -sql 127.0.0.1 -np -nk "$ZIP_FILE" images
-    $ unzip /work/images/<1>.tar.gz
+    $ gunzip /work/images/<1>.tar.gz
     $ tar --append --file=images/<1>.tar -C test/_Flash.img.extracted/squashfs-root/ .
     $ gzip /work/images/<1>.tar
 ``` 
 
-5. Check the `images` folder and ensure that there is a file `<1>.tar.gz`. Then convert the file to an Linux image, which can be emulated by Firmadyne.
+5. Convert the tar to database, so that other scripts in firmadyne can read from the database.
 ```console
+    $ ./scripts/getArch.sh ./images/1.tar.gz
+    $ ./scripts/tar2db.py -i 1 -f ./images/1.tar.gz
+```
+
+6. Check the `images` folder and ensure that there is a file `<1>.tar.gz`. Then convert the file to an Linux image, which can be emulated by Firmadyne.
+```console
+    $ ./download.sh
     $ sudo -SE ./scripts/makeImage.sh <1>
 ```
 Be sure to fill the above command with the number of `<1>.tar.gz`.
 
-6. Set up the networking and try to infer the network configurations. `inferNetwork.sh` will generate the `run.sh` file, which 
-7. has all the instructions/commands to run the the generated image in QEMU. 
+7. Set up the networking and try to infer the network configurations. `inferNetwork.sh` will generate the `run.sh` file, which 
+8. has all the instructions/commands to run the the generated image in QEMU. 
 ```console
     $ ./scripts/inferNetwork.sh 1
 ```
 
-7. Finally execute the `run.sh` to emulate the firmware image (`<1>.tar.gz`)
+9. Finally execute the `run.sh` to emulate the firmware image (`<1>.tar.gz`)
 ```console
     $ ./scratch/1/run.sh
 
@@ -178,9 +186,7 @@ Well, we can mount the image as Linux filesystem using the script privided in Fi
 ### Dynamic Analysis
 1. Lets mount the emulated image, generated in Task 3. 
 ```console
-    $ sudo su
-    # export FIRMWARE_DIR='.'
-    # ./scripts/mount.sh 3
+    $ sudo -SE ./scripts/mount.sh <1>
     
     ----Running----
     ----Adding Device File----
@@ -188,7 +194,7 @@ Well, we can mount the image as Linux filesystem using the script privided in Fi
     ----Mounted at ./scratch//3//image/----
 ```
 
-2. Once mounted, goto `cd scratch/3/image` and analyze the emulated image. 
+2. Once mounted, goto `cd scratch/<1>/image` and analyze the emulated image. 
 
 #### Task 4: Anlyse mounted directory and explore it. 
   - Observe the differences compared to binwalk extracted one and mounted one.
