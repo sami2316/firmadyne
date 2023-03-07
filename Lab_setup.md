@@ -24,6 +24,7 @@ For static analysis, we will use `binwalk` tool; also a part of Firmadyne tool. 
 
 1. In the `/work` folder, download `CP3_2111220956.zip` file, and unzip it to further explore the firmware image. 
 ```console
+    $ sudo apt install python-lzma squashfs-tools binwalk
     $ wget -N --continue https://down.tenda.com.cn/uploadfile/CP3/CP3_2111220956.zip
     $ unzip CP3_2111220956.zip
 ```
