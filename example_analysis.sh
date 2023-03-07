@@ -12,6 +12,9 @@ pushd /firmadyne/firmadyne
 wget -N --continue https://down.tenda.com.cn/uploadfile/CP3/CP3_2111220956.zip
 ZIP_FILE="CP3_2111220956.zip"
 
+# Download all arch kernal images
+./download.sh
+
 mkdir test
 unzip $ZIP_FILE -d test
 binwalk -re test/Flash.img
